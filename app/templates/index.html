@@ -97,6 +97,98 @@
       .filter-btn {
         margin-right: 10px;
       }
+      
+      body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        .marquee-container {
+      overflow: hidden;
+      white-space: nowrap;
+      width: 100%;
+      background-color: #f9f9f9; /* Optional */
+      padding: 10px 0;
+    }
+
+    .marquee {
+      display: inline-flex;
+      animation: marquee 15s linear infinite;
+      will-change: transform;
+    }
+
+    .marquee-item {
+      display: inline-block;
+      padding: 0 2rem;
+      border-right: 1px solid #ddd;
+    }
+
+    .marquee-item:last-child {
+      border-right: none;
+    }
+
+    .inline-flex {
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .name {
+      font-weight: bold;
+      color: gray;
+    }
+
+    .price {
+      color: #374151;
+    }
+
+    .change {
+      display: flex;
+      align-items: center;
+    }
+
+    .change.positive {
+      color: #16a34a;
+    }
+
+    .change.negative {
+      color: #dc2626;
+    }
+
+    @keyframes marquee {
+      from {
+        transform: translateX(100%);
+      }
+      to {
+        transform: translateX(-100%);
+      }
+    }
+
+    .marquee:hover {
+      animation-play-state: paused;
+    }
+    #ticker {
+  padding: 8px;
+  font-size: 16px;
+}
+
+button {
+  padding: 8px 12px;
+  font-size: 16px;
+  margin-left: 10px;
+}
+.chart-container{
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+}
+.chart-container h1{
+  font-size: 25px;
+  font-weight: bold;
+  margin: 10px;
+}
     </style>
   </head>
   <body>
@@ -115,12 +207,21 @@
           <i
             class="fas fa-search"
             style="margin-left: 10px; margin-top: 10px"
-            onclick="searchChart()"
+            onclick="searchChart(),fetchData()"
           ></i>
         </form>
       </div>
     </nav>
-
+    <div class="marquee-container" onmouseover="pauseAnimation()" onmouseout="resumeAnimation()">
+      <div class="marquee" id="marquee">
+        <!-- Dynamic items will be injected here -->
+      </div>
+    </div>
+        <!-- Repeat similar divs for other items -->
+      </div>
+    </div>
+  
+</div>
     <div class="container">
       <!-- Loading Spinner -->
       <div id="loading-spinner"></div>
@@ -275,48 +376,61 @@
         </div>
       </div>
     </div>
-
+    <div class="chart-container">
+      <h1>Daily Stock Performance</h1>
+    <div id="chart"></div>
+  </div>
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.min.js"></script>
 
     <script>
-      let currentTicker = "";
+      let currentTicker = "aapl";
       let smaData = []; // Store SMA data globally
       let filteredData = []; // Store filtered data globally
       let debounceTimer; // To store the debounce timer
-
+      
       function debounce(func, delay) {
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(func, delay);
       }
 
       function searchChart() {
-        const ticker = $("#ticker").val();
-        currentTicker = ticker;
+  const ticker = $("#ticker").val() || currentTicker; // Use the value from input or default ticker
+  currentTicker = ticker;
 
-        if (!ticker) {
-          alert("Please enter a stock ticker.");
-          return;
-        }
+  if (!ticker) {
+    alert("Please enter a stock ticker.");
+    return;
+  }
 
-        $("#chart-container").empty();
+  $("#chart-container").empty();
 
-        $.get(
-          `/stocks/candlestick-chart-tradingview?ticker=${ticker}`,
-          function (response) {
-            $("#loading-spinner").hide();
-            if (response.status === "success") {
-              $("#chart-container").html(response.html);
-              updateSMAReportModal(); // After loading the chart, also load SMA details
-            } else {
-              alert("Failed to fetch chart data.");
-            }
-          }
-        ).fail(function () {
-          $("#loading-spinner").hide();
-          alert("Failed to fetch chart.");
-        });
+  $.get(
+    `/stocks/candlestick-chart-tradingview?ticker=${ticker}`,
+    function (response) {
+      $("#loading-spinner").hide();
+      if (response.status === "success") {
+        $("#chart-container").html(response.html);
+        updateSMAReportModal(); // After loading the chart, also load SMA details
+      } else {
+        alert("Failed to fetch chart data.");
       }
+    }
+  ).fail(function () {
+    $("#loading-spinner").hide();
+    alert("Failed to fetch chart.");
+  });
+}
+
+// Automatically load the default ticker chart (AAPL) on page load
+$(document).ready(function () {
+  // Set the ticker input field to the default ticker
+  $("#ticker").val(currentTicker);
+
+  // Call the searchChart function to load the chart for AAPL
+  searchChart();
+});
 
       function updateSMAReportModal() {
         const smaPeriod = $("#sma-period-modal").val(); // Get selected SMA period
@@ -477,6 +591,115 @@
         currentTicker = ticker;
         updateSMAReportModal();
       }
+      
     </script>
+  <script>
+    const API_URL = "http://127.0.0.1:5001/stocks/stocks/market-prices";
+
+    // Fetch data from the API and populate the marquee
+    async function fetchStockData() {
+      try {
+        const response = await fetch(API_URL);
+        const data = await response.json();
+
+        if (data.status === "success" && Array.isArray(data.data)) {
+          renderMarqueeItems(data.data);
+        } else {
+          console.error("Invalid API response:", data);
+        }
+      } catch (error) {
+        console.error("Error fetching stock data:", error);
+      }
+    }
+
+    // Render marquee items dynamically
+    function renderMarqueeItems(stocks) {
+      const marquee = document.getElementById("marquee");
+      marquee.innerHTML = ""; // Clear any existing items
+
+      stocks.forEach((stock) => {
+        const changeClass = stock.change_percent >= 0 ? "positive" : "negative";
+        const changeSymbol = stock.change_percent >= 0 ? "+" : "";
+
+        const marqueeItem = `
+          <div class="marquee-item inline-flex items-center space-x-2">
+            <span class="name">${stock.ticker}</span>
+            <span class="price">${stock.price.toFixed(2)}</span>
+            <div class="change ${changeClass}">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trending-${stock.change_percent >= 0 ? "up" : "down"}">
+                <polyline points="${stock.change_percent >= 0 ? "22 7 13.5 15.5 8.5 10.5 2 17" : "22 17 13.5 8.5 8.5 13.5 2 7"}"></polyline>
+                <polyline points="16 ${stock.change_percent >= 0 ? "7 22 7 22 13" : "17 22 17 22 11"}"></polyline>
+              </svg>
+              <span class="ml-1">${changeSymbol}${stock.change_percent.toFixed(2)}%</span>
+            </div>
+          </div>
+        `;
+        marquee.innerHTML += marqueeItem;
+      });
+    }
+
+    // Pause animation
+    function pauseAnimation() {
+      const marquee = document.querySelector(".marquee");
+      marquee.style.animationPlayState = "paused";
+    }
+
+    // Resume animation
+    function resumeAnimation() {
+      const marquee = document.querySelector(".marquee");
+      marquee.style.animationPlayState = "running";
+    }
+    
+    // Initialize the marquee
+    fetchStockData();
+    function fetchData() {
+  const ticker = document.getElementById('ticker').value || currentTicker; // Use the input value or the default ticker
+
+  fetch(`http://127.0.0.1:5001/stocks/stocks/Pie-chart?ticker=${ticker}`)
+    .then(response => response.json())
+    .then(data => {
+      const max_value = data.max_value;
+      const min_value = data.min_value;
+
+      const options = {
+        series: [max_value, min_value],
+        chart: {
+          width: 380,
+          type: 'pie',
+        },
+        labels: ['Max', 'Min'],
+        responsive: [
+          {
+            breakpoint: 480,
+            options: {
+              chart: {
+                width: 200,
+              },
+              legend: {
+                position: 'bottom',
+              },
+            },
+          },
+        ],
+      };
+
+      var chart = new ApexCharts(document.querySelector('#chart'), options);
+      chart.render();
+    })
+    .catch(error => {
+      console.error('Error fetching data:', error);
+    });
+}
+
+// Automatically load the default ticker chart (AAPL) on page load
+document.addEventListener('DOMContentLoaded', function() {
+  // Set the ticker input field to the default ticker
+  document.getElementById('ticker').value = currentTicker;
+
+  // Call fetchData function to load the chart for AAPL
+  fetchData();
+});
+
+  </script>
   </body>
 </html>

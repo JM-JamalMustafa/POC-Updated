@@ -314,3 +314,63 @@ class StockData(Resource):
         
         except Exception as e:
             return {"error": str(e)}, 400
+        
+
+COMPANIES = [    
+        {"name": "Apple Inc.", "ticker": "AAPL"}, 
+        {"name": "Microsoft Corp.", "ticker": "MSFT"},
+        {"name": "Amazon.com Inc.", "ticker": "AMZN"},
+        {"name": "Tesla Inc.", "ticker": "TSLA"},
+        {"name": "Alphabet Inc. Class A", "ticker": "GOOGL"},
+        {"name": "NVIDIA Corp.", "ticker": "NVDA"},
+        {"name": "Meta Platforms Inc.", "ticker": "META"},  # Facebook's parent company
+        {"name": "Johnson & Johnson", "ticker": "JNJ"},
+        {"name": "Procter & Gamble Co.", "ticker": "PG"},
+    ]
+
+@stock_ns.route("/stocks/market-prices")
+class StockMarket(Resource):
+    def get(self):
+        """
+        Fetch market prices and percentage changes for predefined companies.
+        """
+        stock_data = []
+        for company in COMPANIES:
+            try:
+                ticker = company["ticker"]
+                stock = yf.Ticker(ticker)
+                hist = stock.history(period="5d")  # Fetch today's data
+
+                if hist.empty:
+                    stock_data.append({
+                        "name": company["name"],
+                        "ticker": ticker,
+                        "price": None,
+                        "change_percent": None,
+                        "error": "No data available"
+                    })
+                    continue
+
+                # Get latest price and percentage change
+                last_close = hist.iloc[-1]["Close"]
+                prev_close = hist.iloc[-2]["Close"] if len(hist) > 1 else last_close
+                print(prev_close)
+                change_percent = ((last_close - prev_close) / prev_close) * 100
+
+                stock_data.append({
+                    "name": company["name"],
+                    "ticker": ticker,
+                    "price": round(last_close, 2),
+                    "change_percent": round(change_percent, 2)
+                })
+            except Exception as e:
+                stock_data.append({
+                    "name": company["name"],
+                    "ticker": company["ticker"],
+                    "error": str(e)
+                })
+
+        return {
+            "status": "success",
+            "data": stock_data
+        }, 200
