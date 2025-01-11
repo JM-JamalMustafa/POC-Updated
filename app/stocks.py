@@ -1,9 +1,9 @@
 import yfinance as yf
 from flask_restx import Namespace, Resource, fields,reqparse
-import traceback
 import pandas as pd
 import logging
 import plotly.graph_objects as go
+from flask import jsonify,Flask,request
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
@@ -16,7 +16,7 @@ def get_stock_data(ticker, period="1y", interval="1d"):
     """Fetch historical stock data from Yahoo Finance."""
     stock = yf.Ticker(ticker)
     data = stock.history(period=period, interval=interval)
-    
+  
     if data.empty:
         raise ValueError("No data found for the given ticker and period.")
     return data.reset_index().to_dict(orient="records")
@@ -249,3 +249,68 @@ class SMAReportDetails(Resource):
                 "status": "error",
                 "message": error_message,
             }, 500
+
+def get_famous_companies_tickers():
+    # Static fallback list
+    return [
+        {"name": "Apple Inc.", "ticker": "AAPL"},
+        {"name": "Microsoft Corp.", "ticker": "MSFT"},
+        {"name": "Amazon.com Inc.", "ticker": "AMZN"},
+        {"name": "Tesla Inc.", "ticker": "TSLA"},
+        {"name": "Alphabet Inc. Class A", "ticker": "GOOGL"},
+        {"name": "NVIDIA Corp.", "ticker": "NVDA"},
+        {"name": "Meta Platforms Inc.", "ticker": "META"},  # Facebook's parent company
+        {"name": "Berkshire Hathaway Inc.", "ticker": "BRK.B"},
+        {"name": "Johnson & Johnson", "ticker": "JNJ"},
+        {"name": "Procter & Gamble Co.", "ticker": "PG"},
+    ]
+
+
+
+
+@stock_ns.route("/dynamic-famous-companies")
+class DynamicFamousCompanies(Resource):
+    def get(self):
+        try:
+            # Fetch tickers dynamically
+            tickers = get_famous_companies_tickers()
+            return {"status": "success", "companies": tickers}, 200
+        except Exception as e:
+            # Log the error and return a friendly message
+            logging.error(f"Error fetching companies: {e}")
+            return {"status": "error", "message": str(e)}, 500
+
+
+@stock_ns.route("/stocks/Pie-chart")
+class StockData(Resource):
+    """Get the max and min stock values for the given ticker."""
+    
+    @stock_ns.doc(params={
+        "ticker": "Stock ticker symbol",  # Declare the query parameter here
+    })
+    def get(self):
+        """Fetch stock data and return max and min values as JSON."""
+        ticker = request.args.get('ticker')  # Get the ticker symbol from the query parameter
+        if not ticker:
+            return {"error": "Ticker symbol is required."}, 400
+        
+        try:
+            # Get today's stock data (list of records)
+            stock_data = get_stock_data(ticker, period="1d", interval="1d")
+            
+            if not stock_data:
+                return {"error": "No data available for the provided ticker."}, 404
+            
+            # Extract max and min values (from the first record)
+            today_max = stock_data[0]['High']  # Access the 'High' value from the first record
+            today_min = stock_data[0]['Low']   # Access the 'Low' value from the first record
+            
+            # Return as JSON
+            return jsonify({
+                'ticker': ticker,
+                'max_value': today_max,
+                'min_value': today_min
+            })
+        
+        except Exception as e:
+            return {"error": str(e)}, 400
