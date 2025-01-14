@@ -114,7 +114,7 @@
 
     .marquee {
       display: inline-flex;
-      animation: marquee 15s linear infinite;
+      animation: marquee 30s linear infinite;
       will-change: transform;
     }
 
@@ -594,7 +594,7 @@ $(document).ready(function () {
       
     </script>
   <script>
-    const API_URL = "http://127.0.0.1:5001/stocks/stocks/market-prices";
+    const API_URL = "http://192.168.1.9:5001/stocks/stocks/market-prices";
 
     // Fetch data from the API and populate the marquee
     async function fetchStockData() {
@@ -655,7 +655,7 @@ $(document).ready(function () {
     function fetchData() {
   const ticker = document.getElementById('ticker').value || currentTicker; // Use the input value or the default ticker
 
-  fetch(`http://127.0.0.1:5001/stocks/stocks/Pie-chart?ticker=${ticker}`)
+  fetch(`http://192.168.1.9:5001/stocks/stocks/Pie-chart?ticker=${ticker}`)
     .then(response => response.json())
     .then(data => {
       const max_value = data.max_value;
